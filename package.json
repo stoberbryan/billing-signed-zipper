@@ -1,0 +1,21 @@
+{
+  "name": "py",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "aws-sdk": "^2.1152.0"
+  },
+  "dependencies": {
+    "json2xls": "^0.1.2",
+    "jszip": "^3.10.0",
+    "lodash": "^4.17.21",
+    "node-zip": "^1.1.1",
+    "zip": "^1.2.0"
+  }
+}
