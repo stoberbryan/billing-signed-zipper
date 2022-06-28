@@ -81,6 +81,7 @@ async function getAllKeys(params, allKeys = []) {
         file_data.push({
             url,
             custy,
+            parent_netsuite_id,
             i
         })
         i = i + 1
