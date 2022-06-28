@@ -3,17 +3,20 @@ const _ = require('lodash');
 const fs = require('fs');
 const s3 = new AWS.S3();
 const Bucket =  'customer-billing-details-destination'
-const limit = 50000
 const file_data = []
 const JSZip = require('jszip');
 const path = require('path')
 const json2xls = require('json2xls');
+const {ulid} = require('ulid');
+const limit = 2
+
 const handler = async (event) => {
     const allKeys = await getAllKeys({ Bucket });
     return allKeys.length;
 };
 
 async function getAllKeys(params, allKeys = []) {
+    const BATCH_ID = ulid()
     const response = await s3.listObjectsV2(params).promise();
     response.Contents.forEach(obj => allKeys.push(obj.Key));
 
@@ -42,6 +45,7 @@ async function getAllKeys(params, allKeys = []) {
     const customers = _.groupBy(names, 'folder')
     //   console.log(customers)
     let i = 0
+    let _parent_netsuite_id
     // const zip = new require('node-zip')();
     const zip = new JSZip();
     for (const custy in customers) {
@@ -53,12 +57,13 @@ async function getAllKeys(params, allKeys = []) {
         const obj = customers[custy]
         for await (let x of obj) {
             // console.log(x)
-            const { Key, file_name, company_name, billing_period } = x
+            const { Key, file_name, company_name, billing_period, parent_netsuite_id } = x
             if (!file_name) continue;
             const p = { Bucket, Key }
             const file = (await s3.getObject(p).promise()).Body
             await storeFile(`./tmp/${custy}/${company_name}_${file_name}`, file)
             zip.file(`${custy}_${billing_period}_${file_name}`, file);
+            _parent_netsuite_id = parent_netsuite_id
             console.log(`processed`, i)
         }
 
@@ -66,7 +71,7 @@ async function getAllKeys(params, allKeys = []) {
         await zipStore(custy, zip)
         // console.log(data); // ugly data
         // await storeFile(`./tmp/${custy}/${custy}.zip`, data)
-        const newKey = `${custy}/${custy}_${Date.now()}.zip`
+        const newKey = `${custy}/${custy}_${BATCH_ID}_${new Date().toISOString()}.zip`
         const params = {
             Bucket,
             Key: newKey, // File name you want to save as in S3
@@ -79,16 +84,17 @@ async function getAllKeys(params, allKeys = []) {
         const url = await getSignedUrl(params)
         console.log(url)
         file_data.push({
+            parent_netsuite_id: _parent_netsuite_id,
             url,
             custy,
-            parent_netsuite_id,
-            i
+            i,
+            BATCH_ID
         })
         i = i + 1
     }
 
     const xls = json2xls(file_data);
-    fs.writeFileSync(`./tmp/urls.csv`, xls, 'binary');
+    fs.writeFileSync(`./tmp/urls_${BATCH_ID}.csv`, xls, 'binary');
     return customers;
 }
 
